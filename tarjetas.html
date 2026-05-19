@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Consumos de Tarjetas - Sistema Contable</title>
     <link rel="stylesheet" href="css/style.css">
-    <!-- Extra styles for grid layout in cards form -->
     <style>
         .form-row {
             display: grid;
@@ -14,6 +13,11 @@
         }
         @media (max-width: 600px) {
             .form-row { grid-template-columns: 1fr; }
+        }
+        .section-divider {
+            margin: 3rem 0;
+            border: none;
+            border-top: 1px solid var(--surface-border);
         }
     </style>
 </head>
@@ -43,51 +47,90 @@
         
         <div class="dashboard-header">
             <div>
-                <h2>Consumos de Tarjetas</h2>
-                <p>Registra y administra las compras de tus tarjetas de crédito y débito.</p>
+                <h2>Gestión de Tarjetas</h2>
+                <p>Administra tus plásticos y lleva el control de todos tus consumos mensuales.</p>
             </div>
-            <button class="btn btn-primary" onclick="document.getElementById('monto_tarjeta').focus()">
-                + Nuevo Consumo
-            </button>
         </div>
 
-        <!-- Split Layout: Form & Table -->
+        <!-- SECTION 1: MASTER CARDS -->
+        <h3 style="margin-bottom: 1.5rem; color: var(--primary-color);">Mis Tarjetas Registradas</h3>
         <div class="main-grid">
             
-            <!-- Register Form -->
+            <!-- Register Card Form -->
             <div class="form-card glass-panel slide-up" style="animation-delay: 0.1s;">
-                <h3 class="card-title">Registrar Consumo</h3>
-                <form id="cardMovementForm">
-                    
-                    <h4 style="margin-bottom: 1rem; color: var(--primary-color);">Datos de la Tarjeta</h4>
+                <h3 class="card-title">Añadir Nueva Tarjeta</h3>
+                <form id="masterCardForm">
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="tipo_tarjeta">Tipo de Tarjeta</label>
+                            <label for="tipo_tarjeta">Tipo</label>
                             <select id="tipo_tarjeta" class="form-control" required>
                                 <option value="credito">Crédito</option>
                                 <option value="debito">Débito</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="nombre_tarjeta">Nombre Tarjeta</label>
-                            <input type="text" id="nombre_tarjeta" class="form-control" placeholder="Ej. Visa, Mastercard" required>
+                            <label for="nombre_tarjeta">Nombre (ej. Visa, Amex)</label>
+                            <input type="text" id="nombre_tarjeta" class="form-control" placeholder="Nombre" required>
                         </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
                             <label for="propietario_tarjeta">Propietario</label>
-                            <input type="text" id="propietario_tarjeta" class="form-control" placeholder="Nombre y Apellido" required>
+                            <input type="text" id="propietario_tarjeta" class="form-control" placeholder="Titular" required>
                         </div>
                         <div class="form-group">
-                            <label for="fecha_cierre">Fecha Cierre</label>
-                            <input type="date" id="fecha_cierre" class="form-control" required>
+                            <label for="dia_cierre">Día de Cierre (1-31)</label>
+                            <input type="number" id="dia_cierre" class="form-control" min="1" max="31" placeholder="Ej. 25" required>
                         </div>
                     </div>
 
-                    <hr style="border: none; border-top: 1px solid var(--surface-border); margin: 1.5rem 0;">
+                    <button type="submit" class="btn btn-primary btn-block">
+                        Guardar Tarjeta
+                    </button>
+                </form>
+            </div>
+
+            <!-- Master Cards Table -->
+            <div class="table-card glass-panel slide-up" style="animation-delay: 0.2s;">
+                <h3 class="card-title">Tarjetas Disponibles</h3>
+                <div class="table-responsive">
+                    <table id="masterCardsTable">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Titular</th>
+                                <th>Tipo</th>
+                                <th>Día Cierre</th>
+                            </tr>
+                        </thead>
+                        <tbody id="masterCardsBody">
+                            <!-- Rows will be added here via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <hr class="section-divider">
+
+        <!-- SECTION 2: CONSUMPTIONS -->
+        <h3 style="margin-bottom: 1.5rem; color: var(--primary-color);">Control de Consumos</h3>
+        <div class="main-grid">
+            
+            <!-- Register Consumption Form -->
+            <div class="form-card glass-panel slide-up" style="animation-delay: 0.3s;">
+                <h3 class="card-title">Registrar Consumo</h3>
+                <form id="cardMovementForm">
                     
-                    <h4 style="margin-bottom: 1rem; color: var(--primary-color);">Detalles del Consumo</h4>
+                    <div class="form-group">
+                        <label for="tarjeta_id">Seleccionar Tarjeta</label>
+                        <select id="tarjeta_id" class="form-control" required>
+                            <!-- Options populated via JS -->
+                        </select>
+                    </div>
+
                     <div class="form-row">
                         <div class="form-group">
                             <label for="fecha_consumo">Fecha de Compra</label>
@@ -116,7 +159,7 @@
             </div>
 
             <!-- Recent Movements Table -->
-            <div class="table-card glass-panel slide-up" style="animation-delay: 0.2s;">
+            <div class="table-card glass-panel slide-up" style="animation-delay: 0.4s;">
                 <h3 class="card-title">Últimos Consumos Registrados</h3>
                 <div class="table-responsive">
                     <table id="cardMovementsTable">
