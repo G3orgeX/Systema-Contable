@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Render each movement (assuming new at the end of array, so we loop backwards or reverse)
         [...movements].reverse().forEach((mov) => {
             const row = document.createElement('tr');
+            row.setAttribute('data-id', mov.id); // Guardar ID para edición
             
             if (mov.tipo === 'ingreso') {
                 totalIngresos += mov.monto;
@@ -128,6 +129,89 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Focus on concept for quick entry
             document.getElementById('concepto').focus();
+        });
+    }
+
+    // Inline editing logic on double click
+    if (tableBody) {
+        tableBody.addEventListener('dblclick', (e) => {
+            const td = e.target.closest('td');
+            if (!td) return;
+            
+            const tr = td.closest('tr');
+            const id = parseInt(tr.getAttribute('data-id'));
+            if (!id) return;
+
+            // Get the cell index
+            const cellIndex = Array.from(tr.children).indexOf(td);
+            
+            // Avoid editing if it's already an input/select
+            if (td.querySelector('input') || td.querySelector('select')) return;
+
+            let movements = JSON.parse(localStorage.getItem('movements')) || [];
+            let movIndex = movements.findIndex(m => m.id === id);
+            if (movIndex === -1) return;
+            let mov = movements[movIndex];
+
+            let originalValue;
+            let inputHTML = '';
+
+            if (cellIndex === 0) { // Fecha
+                originalValue = mov.fecha;
+                inputHTML = `<input type="date" class="form-control" value="${originalValue}" style="padding: 0.25rem; font-size: 0.875rem;">`;
+            } else if (cellIndex === 1) { // Concepto
+                originalValue = mov.concepto;
+                inputHTML = `<input type="text" class="form-control" value="${originalValue}" style="padding: 0.25rem; font-size: 0.875rem;">`;
+            } else if (cellIndex === 2) { // Tipo
+                originalValue = mov.tipo;
+                inputHTML = `
+                    <select class="form-control" style="padding: 0.25rem; font-size: 0.875rem;">
+                        <option value="ingreso" ${originalValue === 'ingreso' ? 'selected' : ''}>Ingreso</option>
+                        <option value="egreso" ${originalValue === 'egreso' ? 'selected' : ''}>Egreso</option>
+                    </select>
+                `;
+            } else if (cellIndex === 3) { // Monto
+                originalValue = mov.monto;
+                inputHTML = `<input type="number" step="0.01" class="form-control" value="${originalValue}" style="padding: 0.25rem; font-size: 0.875rem;">`;
+            } else {
+                return;
+            }
+
+            td.innerHTML = inputHTML;
+            const inputElement = td.firstElementChild;
+            inputElement.focus();
+
+            const saveEdit = () => {
+                let newValue = inputElement.value;
+                if (cellIndex === 3) { // Monto
+                    newValue = parseFloat(newValue);
+                    if (isNaN(newValue) || newValue <= 0) {
+                        alert("Monto inválido");
+                        loadMovements(); // revert
+                        return;
+                    }
+                    mov.monto = newValue;
+                } else if (cellIndex === 0) {
+                    mov.fecha = newValue;
+                } else if (cellIndex === 1) {
+                    mov.concepto = newValue;
+                } else if (cellIndex === 2) {
+                    mov.tipo = newValue;
+                }
+
+                movements[movIndex] = mov;
+                localStorage.setItem('movements', JSON.stringify(movements));
+                loadMovements(); // refresh table and KPIs
+            };
+
+            inputElement.addEventListener('blur', saveEdit);
+            inputElement.addEventListener('keydown', (evt) => {
+                if (evt.key === 'Enter') {
+                    saveEdit();
+                } else if (evt.key === 'Escape') {
+                    loadMovements(); // revert
+                }
+            });
         });
     }
 
