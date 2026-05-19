@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consumos de Tarjetas - Sistema Contable</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Extra styles for grid layout in cards form -->
+    <style>
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        @media (max-width: 600px) {
+            .form-row { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar glass-panel">
+        <div class="container">
+            <a href="dashboard.html" class="navbar-brand">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                </svg>
+                Nexus
+            </a>
+            <ul class="navbar-nav">
+                <li><a href="dashboard.html" class="nav-link">Dashboard</a></li>
+                <li><a href="tarjetas.html" class="nav-link active">Tarjetas</a></li>
+                <li><a href="#" class="nav-link">Reportes</a></li>
+                <li><a href="#" class="nav-link">Configuración</a></li>
+                <li><a href="#" id="logoutBtn" class="nav-link">Salir</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="dashboard-content container fade-in">
+        
+        <div class="dashboard-header">
+            <div>
+                <h2>Consumos de Tarjetas</h2>
+                <p>Registra y administra las compras de tus tarjetas de crédito y débito.</p>
+            </div>
+            <button class="btn btn-primary" onclick="document.getElementById('monto_tarjeta').focus()">
+                + Nuevo Consumo
+            </button>
+        </div>
+
+        <!-- Split Layout: Form & Table -->
+        <div class="main-grid">
+            
+            <!-- Register Form -->
+            <div class="form-card glass-panel slide-up" style="animation-delay: 0.1s;">
+                <h3 class="card-title">Registrar Consumo</h3>
+                <form id="cardMovementForm">
+                    
+                    <h4 style="margin-bottom: 1rem; color: var(--primary-color);">Datos de la Tarjeta</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="tipo_tarjeta">Tipo de Tarjeta</label>
+                            <select id="tipo_tarjeta" class="form-control" required>
+                                <option value="credito">Crédito</option>
+                                <option value="debito">Débito</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="nombre_tarjeta">Nombre Tarjeta</label>
+                            <input type="text" id="nombre_tarjeta" class="form-control" placeholder="Ej. Visa, Mastercard" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="propietario_tarjeta">Propietario</label>
+                            <input type="text" id="propietario_tarjeta" class="form-control" placeholder="Nombre y Apellido" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="fecha_cierre">Fecha Cierre</label>
+                            <input type="date" id="fecha_cierre" class="form-control" required>
+                        </div>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px solid var(--surface-border); margin: 1.5rem 0;">
+                    
+                    <h4 style="margin-bottom: 1rem; color: var(--primary-color);">Detalles del Consumo</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="fecha_consumo">Fecha de Compra</label>
+                            <input type="date" id="fecha_consumo" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="cuotas">Cuotas</label>
+                            <input type="number" id="cuotas" class="form-control" value="1" readonly style="background-color: rgba(0,0,0,0.2); cursor: not-allowed;" title="Por el momento solo 1 pago">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="concepto_tarjeta">Concepto</label>
+                        <input type="text" id="concepto_tarjeta" class="form-control" placeholder="Ej. Supermercado, Ropa" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="monto_tarjeta">Monto Total ($)</label>
+                        <input type="number" step="0.01" id="monto_tarjeta" class="form-control" placeholder="0.00" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-block">
+                        Guardar Consumo
+                    </button>
+                </form>
+            </div>
+
+            <!-- Recent Movements Table -->
+            <div class="table-card glass-panel slide-up" style="animation-delay: 0.2s;">
+                <h3 class="card-title">Últimos Consumos Registrados</h3>
+                <div class="table-responsive">
+                    <table id="cardMovementsTable">
+                        <thead>
+                            <tr>
+                                <th>Fecha Compra</th>
+                                <th>Tarjeta</th>
+                                <th>Concepto</th>
+                                <th>Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cardTableBody">
+                            <!-- Rows will be added here via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

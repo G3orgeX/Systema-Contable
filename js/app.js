@@ -224,4 +224,98 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- LOGIC FOR TARJETAS PAGE (tarjetas.html) ---
+    const cardMovementForm = document.getElementById('cardMovementForm');
+    const cardTableBody = document.getElementById('cardTableBody');
+
+    // Set today's dates as defaults in the cards form
+    const dateCompraInput = document.getElementById('fecha_consumo');
+    const dateCierreInput = document.getElementById('fecha_cierre');
+    if (dateCompraInput) dateCompraInput.valueAsDate = new Date();
+    
+    // Default closing date to today + 30 days for demo purposes
+    if (dateCierreInput) {
+        let futureDate = new Date();
+        futureDate.setDate(futureDate.getDate() + 30);
+        dateCierreInput.valueAsDate = futureDate;
+    }
+
+    const loadCardMovements = () => {
+        if (!cardTableBody) return;
+        
+        let cardMovements = JSON.parse(localStorage.getItem('card_movements')) || [];
+        cardTableBody.innerHTML = '';
+        
+        [...cardMovements].reverse().forEach((mov) => {
+            const row = document.createElement('tr');
+            row.setAttribute('data-id', mov.id);
+
+            const formattedMonto = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD'
+            }).format(mov.monto);
+
+            let badgeClass = mov.tipo_tarjeta === 'credito' ? 'expense' : 'income'; // Just reusing colors: red for credit, green for debit
+            let badgeText = mov.tipo_tarjeta === 'credito' ? 'Crédito' : 'Débito';
+
+            row.innerHTML = `
+                <td>${mov.fecha_consumo}</td>
+                <td>
+                    <strong>${mov.nombre_tarjeta}</strong> <br>
+                    <small style="color: var(--text-secondary)">${mov.propietario}</small> <br>
+                    <span class="badge ${badgeClass}" style="font-size: 0.6rem;">${badgeText}</span>
+                </td>
+                <td>${mov.concepto_tarjeta}</td>
+                <td style="color: var(--danger-color)">-${formattedMonto}</td>
+            `;
+            cardTableBody.appendChild(row);
+        });
+    };
+
+    loadCardMovements();
+
+    if (cardMovementForm) {
+        cardMovementForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const tipo_tarjeta = document.getElementById('tipo_tarjeta').value;
+            const nombre_tarjeta = document.getElementById('nombre_tarjeta').value;
+            const propietario = document.getElementById('propietario_tarjeta').value;
+            const fecha_cierre = document.getElementById('fecha_cierre').value;
+            
+            const fecha_consumo = document.getElementById('fecha_consumo').value;
+            const cuotas = parseInt(document.getElementById('cuotas').value);
+            const concepto_tarjeta = document.getElementById('concepto_tarjeta').value;
+            const monto = parseFloat(document.getElementById('monto_tarjeta').value);
+
+            if (isNaN(monto) || monto <= 0) {
+                alert("Por favor ingresa un monto válido mayor a 0.");
+                return;
+            }
+
+            const newCardMovement = {
+                id: Date.now(),
+                tipo_tarjeta,
+                nombre_tarjeta,
+                propietario,
+                fecha_cierre,
+                fecha_consumo,
+                cuotas,
+                concepto_tarjeta,
+                monto
+            };
+
+            let cardMovements = JSON.parse(localStorage.getItem('card_movements')) || [];
+            cardMovements.push(newCardMovement);
+            localStorage.setItem('card_movements', JSON.stringify(cardMovements));
+
+            loadCardMovements();
+
+            // Reset specific fields only
+            document.getElementById('concepto_tarjeta').value = '';
+            document.getElementById('monto_tarjeta').value = '';
+            document.getElementById('concepto_tarjeta').focus();
+        });
+    }
+
 });
