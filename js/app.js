@@ -3,20 +3,48 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- LOGIC FOR LOGIN PAGE (index.html) ---
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
-        loginForm.addEventListener('submit', (e) => {
+        loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = loginForm.querySelector('button');
             const originalText = btn.innerText;
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password');
+            const email = usernameInput.value;
+            const password = passwordInput.value;
             
             // Simple visual loading state
             btn.innerText = 'Verificando...';
             btn.style.opacity = '0.8';
+            btn.disabled = true; // Disable button to prevent multiple submissions
 
-            // Simulate network request
-            setTimeout(() => {
-                // For this demo, just redirect to dashboard
-                window.location.href = 'dashboard.html';
-            }, 800);
+            try {
+                const response = await fetch('https://localhost:7154/api/Auth/login', { // Asume un endpoint /login
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password }),
+                });
+
+                if (response.ok) { // HTTP status code 200-299
+                    // Assuming a successful login means redirecting to the dashboard
+                    window.location.href = 'dashboard.html';
+                } else {
+                    // Handle login errors (e.g., invalid credentials)
+                    const errorData = await response.json(); // Assuming backend sends JSON error
+                    alert(`Error de inicio de sesión: ${errorData.message || 'Credenciales inválidas.'}`);
+                    btn.innerText = originalText;
+                    btn.style.opacity = '1';
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                // Handle network errors or issues with the backend server
+                console.error('Error de red o CORS:', error);
+                alert('No se pudo conectar con el servidor. Por favor, inténtalo de nuevo más tarde.');
+                btn.innerText = originalText;
+                btn.style.opacity = '1';
+                btn.disabled = false;
+            }
         });
     }
 
