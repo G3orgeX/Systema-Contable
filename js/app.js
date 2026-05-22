@@ -1,4 +1,6 @@
-document.addEventListener('DOMContentLoaded', () => {
+const API_BASE_URL = 'https://localhost:7154/api';
+
+document.addEventListener('DOMContentLoaded', async () => {
 
     // --- LOGIC FOR LOGIN PAGE (index.html) ---
     const loginForm = document.getElementById('loginForm');
@@ -18,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.disabled = true; // Disable button to prevent multiple submissions
 
             try {
-                const response = await fetch('https://localhost:7154/api/Auth/login', { // Asume un endpoint /login
+                const response = await fetch(`${API_BASE_URL}/Auth/login`, { // Asume un endpoint /login
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -27,7 +29,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 if (response.ok) { // HTTP status code 200-299
-                    // Assuming a successful login means redirecting to the dashboard
+                    const data = await response.json();
+                    const token = data?.token || data?.accessToken || data?.jwt;
+                    if (token) {
+                        sessionStorage.setItem('authToken', token);
+                    }
                     window.location.href = 'dashboard.html';
                 } else {
                     // Handle login errors (e.g., invalid credentials)
@@ -247,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (logoutBtn) {
         logoutBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            // In a real app, clear tokens/session here
+            sessionStorage.removeItem('authToken');
             window.location.href = 'index.html';
         });
     }
@@ -256,30 +262,62 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- LOGIC FOR TARJETAS PAGE (tarjetas.html) ---
     const masterCardForm = document.getElementById('masterCardForm');
     const masterCardsBody = document.getElementById('masterCardsBody');
-    
     const cardMovementForm = document.getElementById('cardMovementForm');
     const cardTableBody = document.getElementById('cardTableBody');
     const tarjetaSelect = document.getElementById('tarjeta_id');
+    const tarjetasStatus = document.getElementById('tarjetasStatus');
+
+    const apiBaseUrl = API_BASE_URL;
+    const getAuthHeaders = () => {
+        const token = sessionStorage.getItem('authToken');
+        return token ? { Authorization: `Bearer ${token}` } : {};
+    };
+
+    const showTarjetasStatus = (message = '', type = 'info') => {
+        if (!tarjetasStatus) return;
+        tarjetasStatus.innerText = message;
+        tarjetasStatus.style.display = message ? 'block' : 'none';
+        tarjetasStatus.style.backgroundColor = type === 'error' ? 'rgba(255,77,77,0.12)' : 'rgba(16,185,129,0.12)';
+        tarjetasStatus.style.color = type === 'error' ? '#991b1b' : '#0f766e';
+    };
 
     // Default dates
     const dateCompraInput = document.getElementById('fecha_consumo');
     if (dateCompraInput) dateCompraInput.valueAsDate = new Date();
 
-    const loadCards = () => {
+    const loadCards = async () => {
         if (!masterCardsBody) return;
-        
-        let cards = JSON.parse(localStorage.getItem('cards')) || [];
-        
-        // Populate Master Cards Table
+
+        let cards = [];
+        try {
+            const response = await fetch(`${apiBaseUrl}/cards`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            cards = await response.json();
+            localStorage.setItem('cards', JSON.stringify(cards));
+            showTarjetasStatus('Tarjetas sincronizadas con el backend.', 'info');
+        } catch (error) {
+            console.warn('Error cargando tarjetas desde backend:', error);
+            cards = JSON.parse(localStorage.getItem('cards')) || [];
+            showTarjetasStatus('No se pudo sincronizar las tarjetas. Mostrando datos locales.', 'error');
+        }
+
         masterCardsBody.innerHTML = '';
-        
-        // Populate Select Dropdown
+
         if (tarjetaSelect) {
             tarjetaSelect.innerHTML = '<option value="" disabled selected>Elige una tarjeta...</option>';
         }
 
         cards.forEach(card => {
-            // Row
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td><strong>${card.nombre}</strong></td>
@@ -289,7 +327,6 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             masterCardsBody.appendChild(row);
 
-            // Select Option
             if (tarjetaSelect) {
                 const option = document.createElement('option');
                 option.value = card.id;
@@ -299,21 +336,41 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    const loadCardMovements = () => {
+    const loadCardMovements = async () => {
         if (!cardTableBody) return;
-        
+
         let cards = JSON.parse(localStorage.getItem('cards')) || [];
-        let cardMovements = JSON.parse(localStorage.getItem('card_movements')) || [];
-        
-        // Filter out movements with invalid cards just in case
+        let cardMovements = [];
+
+        try {
+            const response = await fetch(`${apiBaseUrl}/cardmovements`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            cardMovements = await response.json();
+            localStorage.setItem('card_movements', JSON.stringify(cardMovements));
+            showTarjetasStatus('Consumos sincronizados con el backend.', 'info');
+        } catch (error) {
+            console.warn('Error cargando consumos desde backend:', error);
+            cardMovements = JSON.parse(localStorage.getItem('card_movements')) || [];
+            showTarjetasStatus('No se pudo sincronizar los consumos. Mostrando datos locales.', 'error');
+        }
+
         cardTableBody.innerHTML = '';
-        
+
         [...cardMovements].reverse().forEach((mov) => {
             const card = cards.find(c => c.id == mov.tarjeta_id);
-            if (!card) return; // Skip if card was deleted or is missing
+            if (!card) return;
 
             const row = document.createElement('tr');
-            
             const formattedMonto = new Intl.NumberFormat('en-US', {
                 style: 'currency',
                 currency: 'USD'
@@ -337,12 +394,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Initialize Tarjetas Page
-    loadCards();
-    loadCardMovements();
+    await loadCards();
+    await loadCardMovements();
 
     // Handle New Card Registration
     if (masterCardForm) {
-        masterCardForm.addEventListener('submit', (e) => {
+        masterCardForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const tipo = document.getElementById('tipo_tarjeta').value;
@@ -351,25 +408,43 @@ document.addEventListener('DOMContentLoaded', () => {
             const dia_cierre = document.getElementById('dia_cierre').value;
 
             const newCard = {
-                id: Date.now(),
                 tipo,
                 nombre,
                 propietario,
                 dia_cierre
             };
 
-            let cards = JSON.parse(localStorage.getItem('cards')) || [];
-            cards.push(newCard);
-            localStorage.setItem('cards', JSON.stringify(cards));
+            try {
+                const response = await fetch(`${apiBaseUrl}/cards`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeaders()
+                    },
+                    body: JSON.stringify(newCard)
+                });
 
-            loadCards(); // Refresh table and select
-            masterCardForm.reset();
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const savedCard = await response.json();
+                let cards = JSON.parse(localStorage.getItem('cards')) || [];
+                cards.push(savedCard);
+                localStorage.setItem('cards', JSON.stringify(cards));
+                showTarjetasStatus('Tarjeta guardada en el backend.', 'info');
+                await loadCards();
+                masterCardForm.reset();
+            } catch (error) {
+                console.error('Error guardando tarjeta en backend:', error);
+                alert('No se pudo guardar la tarjeta en el backend. Intenta de nuevo.');
+            }
         });
     }
 
     // Handle New Consumption Registration
     if (cardMovementForm) {
-        cardMovementForm.addEventListener('submit', (e) => {
+        cardMovementForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const tarjeta_id = document.getElementById('tarjeta_id').value;
@@ -389,7 +464,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const newMovement = {
-                id: Date.now(),
                 tarjeta_id,
                 fecha_consumo,
                 cuotas,
@@ -397,16 +471,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 monto
             };
 
-            let cardMovements = JSON.parse(localStorage.getItem('card_movements')) || [];
-            cardMovements.push(newMovement);
-            localStorage.setItem('card_movements', JSON.stringify(cardMovements));
+            try {
+                const response = await fetch(`${apiBaseUrl}/cardmovements`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeaders()
+                    },
+                    body: JSON.stringify(newMovement)
+                });
 
-            loadCardMovements();
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
 
-            // Reset only consumption fields
-            document.getElementById('concepto_tarjeta').value = '';
-            document.getElementById('monto_tarjeta').value = '';
-            document.getElementById('concepto_tarjeta').focus();
+                const savedMovement = await response.json();
+                let cardMovements = JSON.parse(localStorage.getItem('card_movements')) || [];
+                cardMovements.push(savedMovement);
+                localStorage.setItem('card_movements', JSON.stringify(cardMovements));
+                showTarjetasStatus('Consumo guardado en el backend.', 'info');
+                await loadCardMovements();
+
+                document.getElementById('concepto_tarjeta').value = '';
+                document.getElementById('monto_tarjeta').value = '';
+                document.getElementById('concepto_tarjeta').focus();
+            } catch (error) {
+                console.error('Error guardando consumo en backend:', error);
+                alert('No se pudo guardar el consumo en el backend. Intenta de nuevo.');
+            }
         });
     }
 
