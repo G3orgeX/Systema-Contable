@@ -290,7 +290,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         let cards = [];
         try {
-            const response = await fetch(`${apiBaseUrl}/cards`, {
+            const response = await fetch(`${apiBaseUrl}/tarjetas`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -302,7 +302,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 throw new Error(`HTTP ${response.status}`);
             }
 
-            cards = await response.json();
+            const result = await response.json();
+            cards = result.data || [];
             localStorage.setItem('cards', JSON.stringify(cards));
             showTarjetasStatus('Tarjetas sincronizadas con el backend.', 'info');
         } catch (error) {
@@ -321,16 +322,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td><strong>${card.nombre}</strong></td>
-                <td>${card.propietario}</td>
+                <td>${card.titular}</td>
                 <td><span class="badge ${card.tipo === 'credito' ? 'expense' : 'income'}">${card.tipo === 'credito' ? 'Crédito' : 'Débito'}</span></td>
-                <td>Día ${card.dia_cierre}</td>
+                <td>Día ${card.diaCierre}</td>
             `;
             masterCardsBody.appendChild(row);
 
             if (tarjetaSelect) {
                 const option = document.createElement('option');
-                option.value = card.id;
-                option.textContent = `${card.nombre} (${card.propietario})`;
+                option.value = card.idTarjeta;
+                option.textContent = `${card.nombre} (${card.titular})`;
                 tarjetaSelect.appendChild(option);
             }
         });
@@ -343,7 +344,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         let cardMovements = [];
 
         try {
-            const response = await fetch(`${apiBaseUrl}/cardmovements`, {
+            const response = await fetch(`${apiBaseUrl}/consumos`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -355,7 +356,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 throw new Error(`HTTP ${response.status}`);
             }
 
-            cardMovements = await response.json();
+            const result = await response.json();
+            cardMovements = result.data || [];
             localStorage.setItem('card_movements', JSON.stringify(cardMovements));
             showTarjetasStatus('Consumos sincronizados con el backend.', 'info');
         } catch (error) {
@@ -367,23 +369,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         cardTableBody.innerHTML = '';
 
         [...cardMovements].reverse().forEach((mov) => {
-            const card = cards.find(c => c.id == mov.tarjeta_id);
+            const card = cards.find(c => c.idTarjeta == mov.idTarjeta);
             if (!card) return;
 
             const row = document.createElement('tr');
             const formattedMonto = new Intl.NumberFormat('en-US', {
                 style: 'currency',
                 currency: 'USD'
-            }).format(mov.monto);
+            }).format(mov.montoTotal);
 
             let badgeClass = card.tipo === 'credito' ? 'expense' : 'income';
             let badgeText = card.tipo === 'credito' ? 'Crédito' : 'Débito';
 
             row.innerHTML = `
-                <td>${mov.fecha_consumo}</td>
+                <td>${mov.fechaCompra}</td>
                 <td>
                     <strong>${card.nombre}</strong> <br>
-                    <small style="color: var(--text-secondary)">${card.propietario}</small> <br>
+                    <small style="color: var(--text-secondary)">${card.titular}</small> <br>
                     <span class="badge ${badgeClass}" style="font-size: 0.6rem;">${badgeText}</span>
                 </td>
                 <td>${mov.concepto}</td>
@@ -404,18 +406,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const tipo = document.getElementById('tipo_tarjeta').value;
             const nombre = document.getElementById('nombre_tarjeta').value;
-            const propietario = document.getElementById('propietario_tarjeta').value;
-            const dia_cierre = document.getElementById('dia_cierre').value;
+            const titular = document.getElementById('propietario_tarjeta').value;
+            const diaCierre = parseInt(document.getElementById('dia_cierre').value) || 1;
 
             const newCard = {
                 tipo,
                 nombre,
-                propietario,
-                dia_cierre
+                titular,
+                diaCierre,
+                activo: true
             };
 
             try {
-                const response = await fetch(`${apiBaseUrl}/cards`, {
+                const response = await fetch(`${apiBaseUrl}/tarjetas`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -424,11 +427,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                     body: JSON.stringify(newCard)
                 });
 
+                let errorMessage = `HTTP ${response.status}`;
+                
                 if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.mensaje || errorData.detalle || errorMessage;
+                    } catch (e) {
+                        console.warn('Could not parse error response as JSON:', e);
+                        errorMessage = `HTTP ${response.status} - Error del servidor`;
+                    }
+                    throw new Error(errorMessage);
                 }
 
-                const savedCard = await response.json();
+                const result = await response.json();
+                const savedCard = result.data || result;
                 let cards = JSON.parse(localStorage.getItem('cards')) || [];
                 cards.push(savedCard);
                 localStorage.setItem('cards', JSON.stringify(cards));
@@ -437,7 +450,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 masterCardForm.reset();
             } catch (error) {
                 console.error('Error guardando tarjeta en backend:', error);
-                alert('No se pudo guardar la tarjeta en el backend. Intenta de nuevo.');
+                alert(`No se pudo guardar la tarjeta en el backend: ${error.message}`);
             }
         });
     }
@@ -447,32 +460,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         cardMovementForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const tarjeta_id = document.getElementById('tarjeta_id').value;
-            if (!tarjeta_id) {
+            const idTarjeta = parseInt(document.getElementById('tarjeta_id').value);
+            if (!idTarjeta) {
                 alert("Por favor selecciona una tarjeta primero.");
                 return;
             }
 
-            const fecha_consumo = document.getElementById('fecha_consumo').value;
+            const fechaCompra = document.getElementById('fecha_consumo').value;
             const cuotas = parseInt(document.getElementById('cuotas').value) || 1;
             const concepto = document.getElementById('concepto_tarjeta').value;
-            const monto = parseFloat(document.getElementById('monto_tarjeta').value);
+            const montoTotal = parseFloat(document.getElementById('monto_tarjeta').value);
 
-            if (isNaN(monto) || monto <= 0) {
+            if (isNaN(montoTotal) || montoTotal <= 0) {
                 alert("Por favor ingresa un monto válido mayor a 0.");
                 return;
             }
 
             const newMovement = {
-                tarjeta_id,
-                fecha_consumo,
+                idTarjeta,
+                fechaCompra,
                 cuotas,
                 concepto,
-                monto
+                montoTotal,
+                esDebitoAutomatico: false
             };
 
             try {
-                const response = await fetch(`${apiBaseUrl}/cardmovements`, {
+                const response = await fetch(`${apiBaseUrl}/consumos`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -481,11 +495,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                     body: JSON.stringify(newMovement)
                 });
 
+                let errorMessage = `HTTP ${response.status}`;
+                
                 if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.mensaje || errorData.detalle || errorMessage;
+                    } catch (e) {
+                        console.warn('Could not parse error response as JSON:', e);
+                        errorMessage = `HTTP ${response.status} - Error del servidor`;
+                    }
+                    throw new Error(errorMessage);
                 }
 
-                const savedMovement = await response.json();
+                const result = await response.json();
+                const savedMovement = result.data || result;
                 let cardMovements = JSON.parse(localStorage.getItem('card_movements')) || [];
                 cardMovements.push(savedMovement);
                 localStorage.setItem('card_movements', JSON.stringify(cardMovements));
@@ -497,7 +521,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 document.getElementById('concepto_tarjeta').focus();
             } catch (error) {
                 console.error('Error guardando consumo en backend:', error);
-                alert('No se pudo guardar el consumo en el backend. Intenta de nuevo.');
+                alert(`No se pudo guardar el consumo en el backend: ${error.message}`);
             }
         });
     }
