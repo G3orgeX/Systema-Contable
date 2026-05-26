@@ -460,32 +460,51 @@ document.addEventListener('DOMContentLoaded', async () => {
         cardMovementForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const idTarjeta = parseInt(document.getElementById('tarjeta_id').value);
-            if (!idTarjeta) {
-                alert("Por favor selecciona una tarjeta primero.");
-                return;
+            const submitBtn = cardMovementForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn ? submitBtn.innerText : null;
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerText = 'Guardando...';
+                submitBtn.style.opacity = '0.8';
             }
-
-            const fechaCompra = document.getElementById('fecha_consumo').value;
-            const cuotas = parseInt(document.getElementById('cuotas').value) || 1;
-            const concepto = document.getElementById('concepto_tarjeta').value;
-            const montoTotal = parseFloat(document.getElementById('monto_tarjeta').value);
-
-            if (isNaN(montoTotal) || montoTotal <= 0) {
-                alert("Por favor ingresa un monto válido mayor a 0.");
-                return;
-            }
-
-            const newMovement = {
-                idTarjeta,
-                fechaCompra,
-                cuotas,
-                concepto,
-                montoTotal,
-                esDebitoAutomatico: false
-            };
 
             try {
+                const token = sessionStorage.getItem('authToken');
+                if (!token) {
+                    alert('No estás autenticado. Por favor inicia sesión.');
+                    window.location.href = 'index.html';
+                    return;
+                }
+
+                const rawTarjetaVal = document.getElementById('tarjeta_id').value;
+                const idTarjeta = parseInt(rawTarjetaVal, 10);
+                if (!idTarjeta || isNaN(idTarjeta)) {
+                    alert('Por favor selecciona una tarjeta válida.');
+                    return;
+                }
+
+                const fechaInput = document.getElementById('fecha_consumo').value; // yyyy-mm-dd
+                // Ensure ISO format with time to avoid model binding issues
+                const fechaCompra = fechaInput ? new Date(fechaInput + 'T00:00:00').toISOString() : new Date().toISOString();
+
+                const cuotas = parseInt(document.getElementById('cuotas').value) || 1;
+                const concepto = document.getElementById('concepto_tarjeta').value.trim();
+                const montoTotal = parseFloat(document.getElementById('monto_tarjeta').value);
+
+                if (isNaN(montoTotal) || montoTotal <= 0) {
+                    alert('Por favor ingresa un monto válido mayor a 0.');
+                    return;
+                }
+
+                const newMovement = {
+                    idTarjeta,
+                    fechaCompra,
+                    cuotas,
+                    concepto,
+                    montoTotal,
+                    esDebitoAutomatico: false
+                };
+
                 const response = await fetch(`${apiBaseUrl}/consumos`, {
                     method: 'POST',
                     headers: {
@@ -496,14 +515,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
 
                 let errorMessage = `HTTP ${response.status}`;
-                
                 if (!response.ok) {
                     try {
-                        const errorData = await response.json();
-                        errorMessage = errorData.mensaje || errorData.detalle || errorMessage;
+                        const text = await response.text();
+                        // Try parse JSON, otherwise include raw text in message
+                        try {
+                            const errorData = JSON.parse(text);
+                            errorMessage = errorData.mensaje || errorData.detalle || JSON.stringify(errorData);
+                        } catch (_e) {
+                            errorMessage = text || errorMessage;
+                        }
                     } catch (e) {
-                        console.warn('Could not parse error response as JSON:', e);
-                        errorMessage = `HTTP ${response.status} - Error del servidor`;
+                        console.warn('Could not read error response:', e);
                     }
                     throw new Error(errorMessage);
                 }
@@ -522,6 +545,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             } catch (error) {
                 console.error('Error guardando consumo en backend:', error);
                 alert(`No se pudo guardar el consumo en el backend: ${error.message}`);
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.style.opacity = '1';
+                    if (originalText) submitBtn.innerText = originalText;
+                }
             }
         });
     }
